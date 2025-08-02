@@ -1,0 +1,55 @@
+{
+  "name": "SecureBox",
+  "description": "End-to-end encrypted file sharing platform with automatic expiry",
+  "repository": "https://github.com/your-username/securebox",
+  "logo": "https://raw.githubusercontent.com/your-username/securebox/main/web/favicon.ico",
+  "keywords": ["encryption", "file-sharing", "security", "privacy", "docker"],
+  "success_url": "/",
+  "website": "https://your-securebox-demo.com",
+  "addons": [
+    "heroku-postgresql:essential-0",
+    "heroku-redis:premium-0"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/docker"
+    }
+  ],
+  "env": {
+    "ENCRYPTION_KEY_SIZE": {
+      "description": "Size of encryption keys in bits",
+      "value": "32"
+    },
+    "RSA_KEY_SIZE": {
+      "description": "RSA key size for encryption",
+      "value": "2048"
+    },
+    "MINIO_BUCKET_NAME": {
+      "description": "S3 bucket name for file storage",
+      "value": "securebox-files-prod"
+    },
+    "LOG_LEVEL": {
+      "description": "Application log level",
+      "value": "INFO"
+    },
+    "API_GATEWAY_HOST": {
+      "description": "API Gateway host",
+      "value": "0.0.0.0"
+    },
+    "API_GATEWAY_PORT": {
+      "description": "API Gateway port",
+      "value": "5000"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "stack": "container"
+}

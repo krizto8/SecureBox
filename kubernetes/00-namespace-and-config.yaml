@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: securebox
+  labels:
+    name: securebox
+    environment: production
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: securebox-config
+  namespace: securebox
+data:
+  POSTGRES_DB: "securebox"
+  POSTGRES_USER: "securebox_user"
+  REDIS_DB: "0"
+  MINIO_BUCKET_NAME: "securebox-files"
+  MINIO_SECURE: "false"
+  MAX_FILE_SIZE_MB: "100"
+  DEFAULT_EXPIRY_HOURS: "24"
+  MAX_EXPIRY_HOURS: "168"
+  LOG_LEVEL: "INFO"
+  ENVIRONMENT: "production"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: securebox-secrets
+  namespace: securebox
+type: Opaque
+data:
+  POSTGRES_PASSWORD: c2VjdXJlX3Bhc3N3b3JkX2NoYW5nZV9pbl9wcm9kdWN0aW9u  # base64 encoded
+  REDIS_PASSWORD: ""
+  MINIO_ACCESS_KEY: bWluaW9hZG1pbg==  # base64 encoded "minioadmin"
+  MINIO_SECRET_KEY: bWluaW9hZG1pbg==  # base64 encoded "minioadmin"
+  SECRET_KEY: eW91ci1zZWNyZXQta2V5LWNoYW5nZS1pbi1wcm9kdWN0aW9u  # base64 encoded
+  JWT_SECRET_KEY: eW91ci1qd3Qtc2VjcmV0LWtleS1jaGFuZ2UtaW4tcHJvZHVjdGlvbg==  # base64 encoded
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: securebox
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: securebox
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: securebox
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: gp2

@@ -1,0 +1,243 @@
+version: '3.8'
+
+services:
+  # API Gateway - Main entry point
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-securebox}
+      - POSTGRES_USER=${POSTGRES_USER:-securebox_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - STORAGE_SERVICE_URL=${STORAGE_SERVICE_URL:-http://storage-service:8002}
+      - ENCRYPTION_SERVICE_URL=${ENCRYPTION_SERVICE_URL:-http://encryption-service:8001}
+      - API_GATEWAY_HOST=0.0.0.0
+      - API_GATEWAY_PORT=5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage-service:
+        condition: service_healthy
+      encryption-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # Storage Service
+  storage-service:
+    build:
+      context: ./services/storage-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-securebox}
+      - POSTGRES_USER=${POSTGRES_USER:-securebox_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-securebox-files}
+      - MINIO_SECURE=${MINIO_SECURE:-false}
+      - STORAGE_SERVICE_HOST=0.0.0.0
+      - STORAGE_SERVICE_PORT=8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # Encryption Service
+  encryption-service:
+    build:
+      context: ./services/encryption-service
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - ENCRYPTION_KEY_SIZE=${ENCRYPTION_KEY_SIZE:-32}
+      - RSA_KEY_SIZE=${RSA_KEY_SIZE:-2048}
+      - ENCRYPTION_SERVICE_HOST=0.0.0.0
+      - ENCRYPTION_SERVICE_PORT=8001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # Background Worker
+  background-worker:
+    build:
+      context: ./services/background-worker
+      dockerfile: Dockerfile
+    environment:
+      - CELERY_BROKER_URL=redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+      - CELERY_RESULT_BACKEND=redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-securebox}
+      - POSTGRES_USER=${POSTGRES_USER:-securebox_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+      - STORAGE_SERVICE_URL=${STORAGE_SERVICE_URL:-http://storage-service:8002}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ./services/background-worker
+      dockerfile: Dockerfile
+    command: celery -A worker beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+      - CELERY_RESULT_BACKEND=redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}/0
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_DB:-securebox}
+      - POSTGRES_USER=${POSTGRES_USER:-securebox_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+      - STORAGE_SERVICE_URL=${STORAGE_SERVICE_URL:-http://storage-service:8002}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "celery.*beat"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./web:/usr/share/nginx/html:ro
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-securebox}
+      POSTGRES_USER: ${POSTGRES_USER:-securebox_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./services/storage-service/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-securebox_user} -d ${POSTGRES_DB:-securebox}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+  # MinIO Object Storage (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - securebox-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  securebox-network:
+    driver: bridge

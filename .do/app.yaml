@@ -1,0 +1,100 @@
+name: securebox
+services:
+- name: web
+  source_dir: /
+  github:
+    repo: your-username/securebox
+    branch: main
+  dockerfile_path: services/api-gateway/Dockerfile
+  http_port: 5000
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  routes:
+  - path: /
+  envs:
+  - key: API_GATEWAY_HOST
+    value: "0.0.0.0"
+  - key: API_GATEWAY_PORT
+    value: "5000"
+  - key: ENCRYPTION_KEY_SIZE
+    value: "32"
+  - key: RSA_KEY_SIZE
+    value: "2048"
+
+- name: storage
+  source_dir: /
+  github:
+    repo: your-username/securebox
+    branch: main
+  dockerfile_path: services/storage-service/Dockerfile
+  http_port: 8002
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  routes:
+  - path: /storage
+  envs:
+  - key: STORAGE_SERVICE_HOST
+    value: "0.0.0.0"
+  - key: STORAGE_SERVICE_PORT
+    value: "8002"
+
+- name: encryption
+  source_dir: /
+  github:
+    repo: your-username/securebox
+    branch: main
+  dockerfile_path: services/encryption-service/Dockerfile
+  http_port: 8001
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  routes:
+  - path: /encrypt
+  envs:
+  - key: ENCRYPTION_SERVICE_HOST
+    value: "0.0.0.0"
+  - key: ENCRYPTION_SERVICE_PORT
+    value: "8001"
+
+- name: worker
+  source_dir: /
+  github:
+    repo: your-username/securebox
+    branch: main
+  dockerfile_path: services/background-worker/Dockerfile
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  envs:
+  - key: CELERY_BROKER_URL
+    value: "${redis.CONNECTION_POOL_URL}"
+
+- name: nginx
+  source_dir: /
+  github:
+    repo: your-username/securebox
+    branch: main
+  dockerfile_path: nginx/Dockerfile
+  http_port: 80
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  routes:
+  - path: /
+
+databases:
+- engine: PG
+  name: securebox-db
+  size: db-s-dev-database
+  version: "15"
+  
+- engine: REDIS
+  name: securebox-redis
+  size: db-s-dev-database
+  version: "7"
+
+static_sites:
+- name: frontend
+  source_dir: /web
+  github:
+    repo: your-username/securebox
+    branch: main
+  routes:
+  - path: /static

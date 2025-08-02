@@ -1,0 +1,136 @@
+# Prometheus alerting rules for SecureBox
+
+groups:
+  - name: securebox.rules
+    rules:
+      # Service availability alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} service on {{ $labels.instance }} has been down for more than 1 minute."
+
+      # High error rate alerts
+      - alert: HighErrorRate
+        expr: rate(flask_http_request_exceptions_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected on {{ $labels.instance }}"
+          description: "Error rate is {{ $value }} errors per second on {{ $labels.instance }}."
+
+      # Database connection alerts
+      - alert: DatabaseConnectionHigh
+        expr: postgresql_stat_activity_count > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connection count"
+          description: "PostgreSQL has {{ $value }} active connections, which is unusually high."
+
+      # Storage space alerts
+      - alert: HighStorageUsage
+        expr: (minio_bucket_usage_object_total / minio_bucket_usage_total_bytes) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High storage usage in MinIO"
+          description: "Storage usage is at {{ $value }}% capacity."
+
+      # Memory usage alerts
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 90% for more than 5 minutes."
+
+      # Redis connection alerts
+      - alert: RedisConnectionHigh
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis connection count"
+          description: "Redis has {{ $value }} connected clients, which is unusually high."
+
+      # File processing alerts
+      - alert: FailedFileUploads
+        expr: increase(securebox_file_upload_failures_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multiple file upload failures"
+          description: "{{ $value }} file uploads have failed in the last 5 minutes."
+
+      # Celery worker alerts
+      - alert: CeleryWorkerDown
+        expr: celery_workers_total == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No Celery workers available"
+          description: "All Celery workers are down. Background tasks will not be processed."
+
+      # Response time alerts
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(flask_http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time on {{ $labels.instance }}"
+          description: "95th percentile response time is {{ $value }} seconds."
+
+  - name: security.rules
+    rules:
+      # Security-related alerts
+      - alert: SuspiciousActivity
+        expr: increase(nginx_http_requests_total{status=~"4.."}[5m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of 4xx errors"
+          description: "{{ $value }} 4xx errors in the last 5 minutes, possible security issue."
+
+      - alert: RateLimitHit
+        expr: increase(nginx_http_requests_total{status="429"}[5m]) > 10
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "Rate limiting triggered"
+          description: "Rate limiting has been triggered {{ $value }} times in the last 5 minutes."
+
+  - name: business.rules
+    rules:
+      # Business logic alerts
+      - alert: LowFileDownloadRate
+        expr: rate(securebox_file_downloads_total[1h]) < 0.1
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low file download rate"
+          description: "File download rate is unusually low: {{ $value }} downloads per second."
+
+      - alert: HighFileExpirationRate
+        expr: rate(securebox_files_expired_total[1h]) > 10
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "High file expiration rate"
+          description: "{{ $value }} files per second are expiring without being downloaded."

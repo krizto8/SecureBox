@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: securebox
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: securebox-config
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: securebox-config
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: securebox-secrets
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - $(POSTGRES_USER)
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - $(POSTGRES_USER)
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: init-script
+        configMap:
+          name: postgres-init-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: securebox
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-script
+  namespace: securebox
+data:
+  init.sql: |
+    -- Initialize SecureBox Database
+    
+    -- Create database user if not exists
+    DO
+    $do$
+    BEGIN
+       IF NOT EXISTS (
+          SELECT FROM pg_catalog.pg_roles
+          WHERE  rolname = 'securebox_user') THEN
+    
+          CREATE ROLE securebox_user LOGIN PASSWORD 'secure_password';
+       END IF;
+    END
+    $do$;
+    
+    -- Grant permissions
+    GRANT ALL PRIVILEGES ON DATABASE securebox TO securebox_user;
+    
+    -- Connect to securebox database and create tables
+    \c securebox;
+    
+    -- Create files table
+    CREATE TABLE IF NOT EXISTS files (
+        id SERIAL PRIMARY KEY,
+        file_id VARCHAR(32) UNIQUE NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        file_size BIGINT NOT NULL,
+        content_type VARCHAR(100),
+        download_token VARCHAR(64) UNIQUE NOT NULL,
+        encryption_key TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL,
+        downloaded_at TIMESTAMP,
+        is_downloaded BOOLEAN DEFAULT FALSE,
+        download_count INTEGER DEFAULT 0,
+        minio_object_name VARCHAR(255) NOT NULL
+    );
+    
+    -- Create indexes for better performance
+    CREATE INDEX IF NOT EXISTS idx_files_file_id ON files(file_id);
+    CREATE INDEX IF NOT EXISTS idx_files_download_token ON files(download_token);
+    CREATE INDEX IF NOT EXISTS idx_files_expires_at ON files(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_files_is_downloaded ON files(is_downloaded);
+    CREATE INDEX IF NOT EXISTS idx_files_created_at ON files(created_at);
+    
+    -- Grant permissions on tables
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO securebox_user;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO securebox_user;
