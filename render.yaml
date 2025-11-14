@@ -13,15 +13,9 @@ services:
       - key: STORAGE_SERVICE_URL
         value: http://securebox-storage:8002
       - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: host
+        sync: false
       - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: port
+        value: 6379
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET_KEY
@@ -41,15 +35,9 @@ services:
     healthCheckPath: /health
     envVars:
       - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: host
+        sync: false
       - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: port
+        value: 6379
       - key: ENCRYPTION_KEY_SIZE
         value: 32
       - key: RSA_KEY_SIZE
@@ -89,15 +77,9 @@ services:
           name: securebox-db
           property: password
       - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: host
+        sync: false
       - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: port
+        value: 6379
       - key: MINIO_ENDPOINT
         sync: false
       - key: MINIO_ACCESS_KEY
@@ -122,25 +104,13 @@ services:
     plan: free
     envVars:
       - key: CELERY_BROKER_URL
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: connectionString
+        sync: false
       - key: CELERY_RESULT_BACKEND
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: connectionString
+        sync: false
       - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: host
+        sync: false
       - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: port
+        value: 6379
       - key: POSTGRES_HOST
         fromDatabase:
           name: securebox-db
@@ -180,25 +150,13 @@ services:
     plan: free
     envVars:
       - key: CELERY_BROKER_URL
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: connectionString
+        sync: false
       - key: CELERY_RESULT_BACKEND
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: connectionString
+        sync: false
       - key: REDIS_HOST
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: host
+        sync: false
       - key: REDIS_PORT
-        fromService:
-          type: redis
-          name: securebox-redis
-          property: port
+        value: 6379
       - key: POSTGRES_HOST
         fromDatabase:
           name: securebox-db
@@ -232,10 +190,5 @@ databases:
   # PostgreSQL Database
   - name: securebox-db
     databaseName: securebox
-    plan: free
-    ipAllowList: []
-
-  # Redis Cache
-  - name: securebox-redis
     plan: free
     ipAllowList: []
