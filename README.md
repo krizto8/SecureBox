@@ -10,6 +10,7 @@ The platform consists of 4 main microservices:
 2. **Encryption Service** (FastAPI) - Handles file encryption/decryption
 3. **Storage Service** (MinIO/S3) - Manages file storage and metadata
 4. **Background Worker** (Celery) - Handles cleanup and background tasks
+
 ![snapshot](image.png)
 ## 🚀 Quick Start
 

@@ -26,11 +26,17 @@ app = FastAPI(
 )
 
 # Redis setup for key caching
-redis_client = redis.Redis(
-    host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', 6379)),
-    decode_responses=False  # We need bytes for encryption keys
-)
+REDIS_URL = os.getenv('REDIS_URL')
+if REDIS_URL:
+    redis_client = redis.from_url(REDIS_URL, decode_responses=False)
+else:
+    redis_client = redis.Redis(
+        host=os.getenv('REDIS_HOST', 'localhost'),
+        port=int(os.getenv('REDIS_PORT', 6379)),
+        password=os.getenv('REDIS_PASSWORD'),
+        ssl=os.getenv('REDIS_SSL', 'false').lower() == 'true',
+        decode_responses=False  # We need bytes for encryption keys
+    )
 
 # Models
 class EncryptionRequest(BaseModel):

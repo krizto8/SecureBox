@@ -1,4 +1,12 @@
 services:
+  # Frontend - Static Site
+  - type: web
+    name: securebox-frontend
+    env: static
+    buildCommand: echo "No build needed"
+    staticPublishPath: ./web
+    plan: free
+
   # API Gateway - Main entry point
   - type: web
     name: securebox-api-gateway
@@ -12,10 +20,8 @@ services:
         value: http://securebox-encryption:8001
       - key: STORAGE_SERVICE_URL
         value: http://securebox-storage:8002
-      - key: REDIS_HOST
+      - key: REDIS_URL
         sync: false
-      - key: REDIS_PORT
-        value: 6379
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET_KEY
@@ -34,10 +40,8 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      - key: REDIS_HOST
+      - key: REDIS_URL
         sync: false
-      - key: REDIS_PORT
-        value: 6379
       - key: ENCRYPTION_KEY_SIZE
         value: 32
       - key: RSA_KEY_SIZE
@@ -76,10 +80,8 @@ services:
         fromDatabase:
           name: securebox-db
           property: password
-      - key: REDIS_HOST
+      - key: REDIS_URL
         sync: false
-      - key: REDIS_PORT
-        value: 6379
       - key: MINIO_ENDPOINT
         sync: false
       - key: MINIO_ACCESS_KEY
@@ -107,10 +109,8 @@ services:
         sync: false
       - key: CELERY_RESULT_BACKEND
         sync: false
-      - key: REDIS_HOST
+      - key: REDIS_URL
         sync: false
-      - key: REDIS_PORT
-        value: 6379
       - key: POSTGRES_HOST
         fromDatabase:
           name: securebox-db
@@ -153,10 +153,8 @@ services:
         sync: false
       - key: CELERY_RESULT_BACKEND
         sync: false
-      - key: REDIS_HOST
+      - key: REDIS_URL
         sync: false
-      - key: REDIS_PORT
-        value: 6379
       - key: POSTGRES_HOST
         fromDatabase:
           name: securebox-db

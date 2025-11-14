@@ -38,11 +38,17 @@ MINIO_BUCKET = os.getenv('MINIO_BUCKET_NAME', 'securebox-files')
 MINIO_SECURE = os.getenv('MINIO_SECURE', 'false').lower() == 'true'
 
 # Redis setup
-redis_client = redis.Redis(
-    host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', 6379)),
-    decode_responses=True
-)
+REDIS_URL = os.getenv('REDIS_URL')
+if REDIS_URL:
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+else:
+    redis_client = redis.Redis(
+        host=os.getenv('REDIS_HOST', 'localhost'),
+        port=int(os.getenv('REDIS_PORT', 6379)),
+        password=os.getenv('REDIS_PASSWORD'),
+        ssl=os.getenv('REDIS_SSL', 'false').lower() == 'true',
+        decode_responses=True
+    )
 
 # MinIO client
 minio_client = Minio(

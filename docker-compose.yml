@@ -216,6 +216,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl:/etc/nginx/ssl
+      - ./web:/usr/share/nginx/html
     ports:
       - "80:80"
       - "443:443"
