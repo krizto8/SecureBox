@@ -1,0 +1,241 @@
+services:
+  # API Gateway - Main entry point
+  - type: web
+    name: securebox-api-gateway
+    env: docker
+    dockerfilePath: ./services/api-gateway/Dockerfile
+    dockerContext: ./services/api-gateway
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ENCRYPTION_SERVICE_URL
+        value: http://securebox-encryption:8001
+      - key: STORAGE_SERVICE_URL
+        value: http://securebox-storage:8002
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: port
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: API_GATEWAY_HOST
+        value: 0.0.0.0
+      - key: API_GATEWAY_PORT
+        value: 5000
+
+  # Encryption Service
+  - type: web
+    name: securebox-encryption
+    env: docker
+    dockerfilePath: ./services/encryption-service/Dockerfile
+    dockerContext: ./services/encryption-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: port
+      - key: ENCRYPTION_KEY_SIZE
+        value: 32
+      - key: RSA_KEY_SIZE
+        value: 2048
+      - key: ENCRYPTION_SERVICE_HOST
+        value: 0.0.0.0
+      - key: ENCRYPTION_SERVICE_PORT
+        value: 8001
+
+  # Storage Service
+  - type: web
+    name: securebox-storage
+    env: docker
+    dockerfilePath: ./services/storage-service/Dockerfile
+    dockerContext: ./services/storage-service
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: securebox-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: securebox-db
+          property: port
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: securebox-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: securebox-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: securebox-db
+          property: password
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: port
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET_NAME
+        value: securebox-files
+      - key: MINIO_SECURE
+        value: true
+      - key: STORAGE_SERVICE_HOST
+        value: 0.0.0.0
+      - key: STORAGE_SERVICE_PORT
+        value: 8002
+
+  # Background Worker
+  - type: worker
+    name: securebox-worker
+    env: docker
+    dockerfilePath: ./services/background-worker/Dockerfile
+    dockerContext: ./services/background-worker
+    plan: free
+    envVars:
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: connectionString
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: port
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: securebox-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: securebox-db
+          property: port
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: securebox-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: securebox-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: securebox-db
+          property: password
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET_NAME
+        value: securebox-files
+
+  # Celery Beat Scheduler
+  - type: worker
+    name: securebox-beat
+    env: docker
+    dockerfilePath: ./services/background-worker/Dockerfile
+    dockerContext: ./services/background-worker
+    dockerCommand: celery -A worker beat --loglevel=info
+    plan: free
+    envVars:
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: connectionString
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: securebox-redis
+          property: port
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: securebox-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: securebox-db
+          property: port
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: securebox-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: securebox-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: securebox-db
+          property: password
+      - key: MINIO_ENDPOINT
+        sync: false
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET_NAME
+        value: securebox-files
+
+databases:
+  # PostgreSQL Database
+  - name: securebox-db
+    databaseName: securebox
+    plan: free
+    ipAllowList: []
+
+  # Redis Cache
+  - name: securebox-redis
+    plan: free
+    ipAllowList: []
