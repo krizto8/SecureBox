@@ -5,7 +5,6 @@ services:
     env: static
     buildCommand: echo "No build needed"
     staticPublishPath: ./web
-    plan: free
 
   # API Gateway - Main entry point
   - type: web
