@@ -208,7 +208,7 @@ def login():
         'expires_in': int(os.getenv('JWT_EXPIRATION_HOURS', 24)) * 3600
     }), 200
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=["GET", "POST"])
 @limiter.limit("10 per minute")
 def upload_file():
     """Upload and encrypt a file"""
