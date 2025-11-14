@@ -453,7 +453,7 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    port = int(os.getenv('API_GATEWAY_PORT', 5000))
+    port = int(os.getenv('PORT', 5000))
     host = os.getenv('API_GATEWAY_HOST', '0.0.0.0')
     debug = os.getenv('DEBUG', 'false').lower() == 'true'
     
